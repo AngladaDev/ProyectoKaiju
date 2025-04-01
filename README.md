@@ -45,8 +45,6 @@ The final decision will depend on performance, development complexity, and which
 
 - **Unity** (Main game engine)  
 - **C#** (Game logic)  
-- **Blender or third-party tools** (for models, if 3D is chosen)  
-- *(Optional)* **Database** for saving progress or persistent mechanics
 
 ---
 
