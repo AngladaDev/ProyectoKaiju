@@ -7,23 +7,30 @@ using UnityEngine.AI;
 /// </summary>
 public class UnitRTS : MonoBehaviour
 {
-    private bool isSelected;
+    // ─────────────────────────────────────
+    // ▶ FIELDS & PROPERTIES
+    // ─────────────────────────────────────
 
-    private Renderer rend;
-    private NavMeshAgent agent;
+    private bool isSelected;
+    private Renderer rendererComponent;
+    private NavMeshAgent navAgent;
 
     private static readonly Color SelectedColor = Color.green;
     private static readonly Color DefaultColor = Color.white;
 
     /// <summary>
-    /// Gets the logical unit type.
+    /// Gets the logical unit type from the GameObject tag.
     /// </summary>
     public string UnitType => gameObject.tag;
 
+    // ─────────────────────────────────────
+    // ▶ UNITY LIFECYCLE
+    // ─────────────────────────────────────
+
     private void Awake()
     {
-        rend = GetComponent<Renderer>();
-        agent = GetComponent<NavMeshAgent>();
+        rendererComponent = GetComponent<Renderer>();
+        navAgent = GetComponent<NavMeshAgent>();
     }
 
     private void Start()
@@ -33,12 +40,12 @@ public class UnitRTS : MonoBehaviour
 
     private void Update()
     {
-        // Right-click to move if selected
-        if (isSelected && Input.GetMouseButtonDown(1))
-        {
-            TrySetDestinationFromMouse();
-        }
+        HandleMovementInput();
     }
+
+    // ─────────────────────────────────────
+    // ▶ SELECTION API
+    // ─────────────────────────────────────
 
     /// <summary>
     /// Marks the unit as selected and changes its appearance.
@@ -46,7 +53,7 @@ public class UnitRTS : MonoBehaviour
     public void Select()
     {
         isSelected = true;
-        SetColor(SelectedColor);
+        UpdateVisualFeedback();
     }
 
     /// <summary>
@@ -55,30 +62,50 @@ public class UnitRTS : MonoBehaviour
     public void Deselect()
     {
         isSelected = false;
-        SetColor(DefaultColor);
+        UpdateVisualFeedback();
+    }
+
+    // ─────────────────────────────────────
+    // ▶ MOVEMENT
+    // ─────────────────────────────────────
+
+    /// <summary>
+    /// Handles right-click movement input.
+    /// </summary>
+    private void HandleMovementInput()
+    {
+        if (!isSelected) return;
+
+        if (Input.GetMouseButtonDown(1))
+        {
+            SetDestinationFromMouse();
+        }
     }
 
     /// <summary>
     /// Performs a raycast from the mouse and moves the unit to the clicked position.
     /// </summary>
-    private void TrySetDestinationFromMouse()
+    private void SetDestinationFromMouse()
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
-            agent.SetDestination(hit.point);
+            navAgent.SetDestination(hit.point);
         }
     }
 
+    // ─────────────────────────────────────
+    // ▶ VISUAL FEEDBACK
+    // ─────────────────────────────────────
+
     /// <summary>
-    /// Changes the material color of the unit.
+    /// Updates the unit's material color based on its selection state.
     /// </summary>
-    /// <param name="color">Target color.</param>
-    private void SetColor(Color color)
+    private void UpdateVisualFeedback()
     {
-        if (rend != null)
+        if (rendererComponent != null)
         {
-            rend.material.color = color;
+            rendererComponent.material.color = isSelected ? SelectedColor : DefaultColor;
         }
     }
 }

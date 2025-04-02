@@ -1,5 +1,10 @@
+// ─────────────────────────────────────
+// ▶ EVENTS
+// ─────────────────────────────────────
+
 using UnityEngine;
 using System.Collections.Generic;
+using System;
 
 /// <summary>
 /// Manages unit selection (click, drag-box, double-click) in RTS gameplay.
@@ -7,18 +12,35 @@ using System.Collections.Generic;
 /// </summary>
 public class RTSController : MonoBehaviour
 {
-    /// <summary> UI representation of the selection box. </summary>
+    public static event Action<List<UnitRTS>> OnSelectionChanged;
+
+    // ─────────────────────────────────────
+    // ▶ CONFIGURATION & STATE
+    // ─────────────────────────────────────
+
     public RectTransform selectionBoxUI;
 
     private Vector2 startMousePos;
     private Vector2 endMousePos;
     private bool isDragging;
 
-    private List<UnitRTS> selectedUnits = new List<UnitRTS>();
+    private readonly List<UnitRTS> selectedUnits = new();
+    private readonly List<UnitRTS> unitsInBoxBuffer = new();
 
     private float lastClickTime;
     private const float doubleClickThreshold = 0.2f;
     private const float dragThreshold = 10f;
+
+    private Camera cam;
+
+    // ─────────────────────────────────────
+    // ▶ UNITY LIFECYCLE
+    // ─────────────────────────────────────
+
+    private void Awake()
+    {
+        cam = Camera.main;
+    }
 
     private void Update()
     {
@@ -27,25 +49,27 @@ public class RTSController : MonoBehaviour
         CheckEscapeKey();
     }
 
+    // ─────────────────────────────────────
+    // ▶ INPUT HANDLING
+    // ─────────────────────────────────────
+
     private void HandleSelectionInput()
     {
-        // Begin drag selection
         if (Input.GetMouseButtonDown(0))
         {
             isDragging = true;
             startMousePos = Input.mousePosition;
         }
 
-        // End drag selection or handle click
         if (Input.GetMouseButtonUp(0))
         {
             endMousePos = Input.mousePosition;
             isDragging = false;
 
             if (Vector2.Distance(startMousePos, endMousePos) > dragThreshold)
-                SelectUnitsInArea();
+                SelectUnitsByBoxArea();
             else
-                CheckSingleClick();
+                HandleClickSelection();
         }
     }
 
@@ -64,127 +88,128 @@ public class RTSController : MonoBehaviour
         }
     }
 
-    private void SelectUnitsInArea()
-{
-    List<UnitRTS> unitsInBox = new List<UnitRTS>();
-
-    // Calculate selection rectangle based on drag area
-    Vector2 min = Vector2.Min(startMousePos, endMousePos);
-    Vector2 max = Vector2.Max(startMousePos, endMousePos);
-    Rect selectionRect = new Rect(min, max - min);
-
-    // Find all units within the selection box
-    foreach (UnitRTS unit in FindObjectsByType<UnitRTS>(FindObjectsSortMode.None))
+    private void CheckEscapeKey()
     {
-        Vector3 screenPos = Camera.main.WorldToScreenPoint(unit.transform.position);
-        if (selectionRect.Contains(screenPos, true))
-            unitsInBox.Add(unit);
+        if (Input.GetKeyDown(KeyCode.Escape))
+            DeselectAll();
     }
 
-    // Deselect currently selected units that are NOT in the new selection box
-    foreach (UnitRTS unit in selectedUnits.ToArray())
-    {
-        if (!unitsInBox.Contains(unit))
-        {
-            unit.Deselect();
-            selectedUnits.Remove(unit);
-        }
-    }
+    // ─────────────────────────────────────
+    // ▶ SELECTION HANDLING
+    // ─────────────────────────────────────
 
-    // Select all units found inside the selection box
-    foreach (UnitRTS unit in unitsInBox)
+    private void HandleClickSelection()
     {
-        if (!selectedUnits.Contains(unit))
-        {
-            unit.Select();
-            selectedUnits.Add(unit);
-        }
-    }
-}
-
-
-    private void CheckSingleClick()
-    {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
             UnitRTS clickedUnit = hit.collider.GetComponent<UnitRTS>();
-            bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            bool shiftHeld = IsShiftHeld;
 
             if (clickedUnit != null)
             {
                 float timeSinceLastClick = Time.time - lastClickTime;
                 lastClickTime = Time.time;
 
-                // Handle double-click selection
                 if (timeSinceLastClick < doubleClickThreshold)
-                    HandleDoubleClick(clickedUnit, shiftHeld);
+                    ProcessDoubleClick(clickedUnit, shiftHeld);
                 else
-                    HandleSingleClick(clickedUnit, shiftHeld);
+                    ProcessSingleClick(clickedUnit, shiftHeld);
             }
             else if (!shiftHeld)
             {
                 DeselectAll();
             }
         }
-        else if (!Input.GetKey(KeyCode.LeftShift) && !Input.GetKey(KeyCode.RightShift))
+        else if (!IsShiftHeld)
         {
             DeselectAll();
         }
     }
 
-    private void HandleSingleClick(UnitRTS clickedUnit, bool shiftHeld)
+    private void ProcessSingleClick(UnitRTS clickedUnit, bool shiftHeld)
     {
         if (shiftHeld)
         {
-            // Toggle selection state
             if (selectedUnits.Contains(clickedUnit))
-            {
-                clickedUnit.Deselect();
-                selectedUnits.Remove(clickedUnit);
-            }
+                DeselectUnit(clickedUnit);
             else
-            {
-                clickedUnit.Select();
-                selectedUnits.Add(clickedUnit);
-            }
+                SelectUnit(clickedUnit);
         }
         else
         {
-            // Select single unit exclusively
             if (selectedUnits.Count != 1 || !selectedUnits.Contains(clickedUnit))
             {
                 DeselectAll();
-                clickedUnit.Select();
-                selectedUnits.Add(clickedUnit);
+                SelectUnit(clickedUnit);
             }
             else
             {
                 DeselectAll();
             }
         }
+
+        OnSelectionChanged?.Invoke(selectedUnits);
     }
 
-    private void HandleDoubleClick(UnitRTS clickedUnit, bool shiftHeld)
+    private void ProcessDoubleClick(UnitRTS clickedUnit, bool shiftHeld)
     {
         if (!shiftHeld)
             DeselectAll();
 
-        // Select all units of the same type
         foreach (UnitRTS unit in FindObjectsByType<UnitRTS>(FindObjectsSortMode.None))
         {
             if (unit.UnitType == clickedUnit.UnitType && !selectedUnits.Contains(unit))
-            {
-                unit.Select();
-                selectedUnits.Add(unit);
-            }
+                SelectUnit(unit);
         }
+
+        OnSelectionChanged?.Invoke(selectedUnits);
     }
 
-    private void CheckEscapeKey()
+    private void SelectUnitsByBoxArea()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
-            DeselectAll();
+        unitsInBoxBuffer.Clear();
+
+        Vector2 min = Vector2.Min(startMousePos, endMousePos);
+        Vector2 max = Vector2.Max(startMousePos, endMousePos);
+        Rect selectionRect = new Rect(min, max - min);
+
+        foreach (UnitRTS unit in FindObjectsByType<UnitRTS>(FindObjectsSortMode.None))
+        {
+            Vector3 screenPos = cam.WorldToScreenPoint(unit.transform.position);
+            if (selectionRect.Contains(screenPos, true))
+                unitsInBoxBuffer.Add(unit);
+        }
+
+        foreach (UnitRTS unit in selectedUnits.ToArray())
+        {
+            if (!unitsInBoxBuffer.Contains(unit))
+                DeselectUnit(unit);
+        }
+
+        foreach (UnitRTS unit in unitsInBoxBuffer)
+        {
+            if (!selectedUnits.Contains(unit))
+                SelectUnit(unit);
+        }
+
+        OnSelectionChanged?.Invoke(selectedUnits);
+    }
+
+    // ─────────────────────────────────────
+    // ▶ SELECTION HELPERS
+    // ─────────────────────────────────────
+
+    private void SelectUnit(UnitRTS unit)
+    {
+        unit.Select();
+        selectedUnits.Add(unit);
+    }
+
+    private void DeselectUnit(UnitRTS unit)
+    {
+        unit.Deselect();
+        selectedUnits.Remove(unit);
     }
 
     private void DeselectAll()
@@ -193,5 +218,8 @@ public class RTSController : MonoBehaviour
             unit.Deselect();
 
         selectedUnits.Clear();
+        OnSelectionChanged?.Invoke(selectedUnits);
     }
+
+    private bool IsShiftHeld => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 }
