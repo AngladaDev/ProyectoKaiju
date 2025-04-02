@@ -1,7 +1,3 @@
-// ─────────────────────────────────────
-// ▶ EVENTS
-// ─────────────────────────────────────
-
 using UnityEngine;
 using System.Collections.Generic;
 using System;
@@ -220,6 +216,10 @@ public class RTSController : MonoBehaviour
         selectedUnits.Clear();
         OnSelectionChanged?.Invoke(selectedUnits);
     }
+
+    // ─────────────────────────────────────
+    // ▶ EVENTS
+    // ─────────────────────────────────────
 
     private bool IsShiftHeld => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 }
