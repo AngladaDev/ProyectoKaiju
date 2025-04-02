@@ -65,44 +65,43 @@ public class RTSController : MonoBehaviour
     }
 
     private void SelectUnitsInArea()
+{
+    List<UnitRTS> unitsInBox = new List<UnitRTS>();
+
+    // Calculate selection rectangle based on drag area
+    Vector2 min = Vector2.Min(startMousePos, endMousePos);
+    Vector2 max = Vector2.Max(startMousePos, endMousePos);
+    Rect selectionRect = new Rect(min, max - min);
+
+    // Find all units within the selection box
+    foreach (UnitRTS unit in FindObjectsByType<UnitRTS>(FindObjectsSortMode.None))
     {
-        List<UnitRTS> unitsInBox = new List<UnitRTS>();
+        Vector3 screenPos = Camera.main.WorldToScreenPoint(unit.transform.position);
+        if (selectionRect.Contains(screenPos, true))
+            unitsInBox.Add(unit);
+    }
 
-        Vector2 min = Vector2.Min(startMousePos, endMousePos);
-        Vector2 max = Vector2.Max(startMousePos, endMousePos);
-        Rect selectionRect = new Rect(min, max - min);
-
-        // Gather units within selection rectangle
-        foreach (UnitRTS unit in FindObjectsByType<UnitRTS>(FindObjectsSortMode.None))
+    // Deselect currently selected units that are NOT in the new selection box
+    foreach (UnitRTS unit in selectedUnits.ToArray())
+    {
+        if (!unitsInBox.Contains(unit))
         {
-            Vector3 screenPos = Camera.main.WorldToScreenPoint(unit.transform.position);
-            if (selectionRect.Contains(screenPos, true))
-                unitsInBox.Add(unit);
-        }
-
-        if (unitsInBox.Count == 0)
-        {
-            DeselectAll();
-            return;
-        }
-
-        // Determine if all units are already selected
-        bool allSelected = unitsInBox.TrueForAll(unit => selectedUnits.Contains(unit));
-
-        foreach (UnitRTS unit in unitsInBox)
-        {
-            if (allSelected)
-            {
-                unit.Deselect();
-                selectedUnits.Remove(unit);
-            }
-            else if (!selectedUnits.Contains(unit))
-            {
-                unit.Select();
-                selectedUnits.Add(unit);
-            }
+            unit.Deselect();
+            selectedUnits.Remove(unit);
         }
     }
+
+    // Select all units found inside the selection box
+    foreach (UnitRTS unit in unitsInBox)
+    {
+        if (!selectedUnits.Contains(unit))
+        {
+            unit.Select();
+            selectedUnits.Add(unit);
+        }
+    }
+}
+
 
     private void CheckSingleClick()
     {
