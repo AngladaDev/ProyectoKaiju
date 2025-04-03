@@ -8,6 +8,11 @@ using System;
 /// </summary>
 public class RTSController : MonoBehaviour
 {
+
+    // ─────────────────────────────────────
+    // ▶ EVENTS
+    // ─────────────────────────────────────
+    
     public static event Action<List<UnitRTS>> OnSelectionChanged;
 
     // ─────────────────────────────────────
@@ -24,7 +29,7 @@ public class RTSController : MonoBehaviour
     private readonly List<UnitRTS> unitsInBoxBuffer = new();
 
     private float lastClickTime;
-    private const float doubleClickThreshold = 0.2f;
+    private const float doubleClickThreshold = 0.3f;
     private const float dragThreshold = 10f;
 
     private Camera cam;
@@ -42,7 +47,6 @@ public class RTSController : MonoBehaviour
     {
         HandleSelectionInput();
         DrawSelectionBox();
-        CheckEscapeKey();
     }
 
     // ─────────────────────────────────────
@@ -84,11 +88,6 @@ public class RTSController : MonoBehaviour
         }
     }
 
-    private void CheckEscapeKey()
-    {
-        if (Input.GetKeyDown(KeyCode.Escape))
-            DeselectAll();
-    }
 
     // ─────────────────────────────────────
     // ▶ SELECTION HANDLING
@@ -216,10 +215,6 @@ public class RTSController : MonoBehaviour
         selectedUnits.Clear();
         OnSelectionChanged?.Invoke(selectedUnits);
     }
-
-    // ─────────────────────────────────────
-    // ▶ EVENTS
-    // ─────────────────────────────────────
 
     private bool IsShiftHeld => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 }

@@ -31,11 +31,12 @@ public class UnitRTS : MonoBehaviour
     {
         rendererComponent = GetComponent<Renderer>();
         navAgent = GetComponent<NavMeshAgent>();
+        Deselect();
     }
 
     private void Start()
     {
-        Deselect();
+
     }
 
     private void Update()
